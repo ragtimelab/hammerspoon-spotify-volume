@@ -18,14 +18,14 @@
 - Bound READY/BUSY recovery, use atomic checked state writes, and flush confirmed state on worker termination.
 - Verify running build identity and worker ownership; serialize lifecycle operations and preserve other configuration after uninstall.
 
-이 프로젝트는 Semantic Versioning을 사용합니다.
+This project uses Semantic Versioning.
 
 ## 0.1.0 - 2026-09-05
 
-- 16단계 AppleScript Spotify 볼륨 컨트롤러
-- Hammerspoon native key repeat 처리
-- Spotify PID 기반 HUD helper 생명주기
-- versioned stdin protocol과 helper singleton
-- Hammerspoon Spoon 패키징
-- 원자적 install, rollback, uninstall
-- Lua runtime 및 Swift protocol 회귀 테스트
+- 16-step AppleScript volume controller for Spotify
+- Native Hammerspoon key repeat handling
+- Spotify PID-based HUD helper lifecycle
+- Versioned stdin protocol and helper singleton
+- Hammerspoon Spoon packaging
+- Atomic installation, rollback, and uninstallation
+- Regression tests for the Lua runtime and Swift protocol
