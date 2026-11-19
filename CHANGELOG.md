@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+
+- Reach the actual 0% and 100% Spotify volume when a fresh press starts near an endpoint.
+- Preserve the existing 16-step mapping, key repeat, and intermediate volume behavior.
+
 ## 0.2.0
 
 - Add verified source installation for native Intel and Apple Silicon.

@@ -61,6 +61,27 @@ return {name = "controller", tests = {
             eq(#x.sets, 0); eq(#x.shows, 2)
         end
     end},
+    {name = "near-boundary values reach the actual endpoint before updating HUD", run = function()
+        for _, volume in ipairs({1,2,3,97,98,99}) do
+            local x = context(); x.volume = volume
+            local d = volume < 50 and -1 or 1
+            local endpoint = d < 0 and 0 or 100
+            local segment = d < 0 and 0 or 16
+            x.c:pressed(d); x.c:repeated(d); x.c:released()
+            x:reply()
+            eq(x.volume, volume); eq(#x.shows, 0)
+            eq(x.requests[1].kind, "set"); eq(x.requests[1].value, endpoint)
+            x:drain()
+            eq(x.volume, endpoint); eq(#x.sets, 1)
+            eq(#x.shows, 2); eq(x.shows[1], segment); eq(x.shows[2], segment)
+            eq(#x.writes, 1); eq(x.writes[1], segment)
+        end
+    end},
+    {name = "off-grid midrange presses retain the nearest-segment step", run = function()
+        local x = context(); x.volume = 42
+        x.c:pressed(1); x:drain()
+        eq(x.volume, 50); eq(x.shows[1], 8)
+    end},
     {name = "old generation responses cannot commit state", run = function()
         local x = context(); x.c:pressed(1); x:reply(); x.c:spotifyStopped(); x:reply()
         eq(#x.shows, 0); eq(x.c:status().segment, 8)

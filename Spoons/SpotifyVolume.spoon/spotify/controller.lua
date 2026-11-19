@@ -74,11 +74,16 @@ function Controller:_pump()
         end
         self:_pump()
     end
-    local function step(oldSegment)
+    local function step(oldSegment, readVolume)
         if generation ~= self.generation then return end
         local nextSegment = module.clampSegment(oldSegment + event.delta)
-        if nextSegment == oldSegment then finish(true, nextSegment, false); return end
-        self.spotify.setVolume(module.segmentToVolume(nextSegment), function(ok, _, err)
+        local targetVolume = module.segmentToVolume(nextSegment)
+        -- A fresh read can round to an endpoint before Spotify reaches it.
+        if nextSegment == oldSegment and (readVolume == nil or readVolume == targetVolume) then
+            finish(true, nextSegment, false)
+            return
+        end
+        self.spotify.setVolume(targetVolume, function(ok, _, err)
             finish(ok, nextSegment, true, err)
         end)
     end
@@ -87,7 +92,7 @@ function Controller:_pump()
             if generation ~= self.generation then return end
             if not ok or type(volume) ~= "number" or volume < 0 or volume > 100 then
                 finish(false, nil, false, err or "invalid-volume")
-            else step(module.volumeToSegment(volume)) end
+            else step(module.volumeToSegment(volume), volume) end
         end)
     elseif self.synchronized then step(self.currentSegment)
     else finish(false, nil, false, "not-synchronized") end
