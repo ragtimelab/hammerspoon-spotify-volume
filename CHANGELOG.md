@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.2
+
+- Publish the installation, contributor, changelog, and architecture documentation in English.
+- Clarify the roles of the native helper executables.
+
 ## 0.2.1
 
 - Reach the actual 0% and 100% Spotify volume when a fresh press starts near an endpoint.
