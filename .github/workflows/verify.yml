@@ -1,0 +1,37 @@
+name: Verify
+
+on:
+  push:
+    branches: [main, release/public-v0.2.0]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15-intel, macos-15]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install verification dependencies
+        run: |
+          command -v luajit >/dev/null || brew install luajit
+          command -v rg >/dev/null || brew install ripgrep
+
+      - name: Verify source, build, and installer
+        run: make verify
+
+      - name: Install and remove the release source archive
+        run: ./Tests/Shell/source_release_test.zsh

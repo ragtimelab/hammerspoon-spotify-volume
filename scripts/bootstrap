@@ -1,0 +1,50 @@
+#!/bin/zsh
+set -euo pipefail
+umask 077
+url=${1:?Release URL required}
+digest=${2:?Release SHA-256 required}
+shift 2
+architecture=$(/usr/bin/uname -m)
+arm_hardware=$(/usr/sbin/sysctl -n hw.optional.arm64 2>/dev/null || print 0)
+if [[ "$architecture" != x86_64 || "$arm_hardware" == 1 ]]; then
+    print -u2 'This public release supports Intel Macs. Apple Silicon runtime validation is pending.'
+    exit 1
+fi
+[[ "$digest" =~ '^[a-f0-9]{64}$' ]] || exit 1
+/usr/bin/xcode-select -p >/dev/null 2>&1 &&
+    /usr/bin/xcrun --find swift >/dev/null 2>&1 || {
+        print -u2 'Install Apple Command Line Tools with xcode-select --install and retry.'
+        exit 1
+    }
+stage=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/spotify-volume.XXXXXX")
+trap '/usr/bin/find "$stage" -depth -delete' EXIT
+trap 'exit 1' HUP INT TERM
+archive="$stage/source.tar.gz"
+/usr/bin/curl --proto '=https' --proto-redir '=https' -fLsS --max-time 90 "$url" -o "$archive"
+actual=$(/usr/bin/shasum -a 256 "$archive")
+[[ "${actual%% *}" == "$digest" ]] || { print -u2 'Release checksum mismatch'; exit 1; }
+/usr/bin/ruby -r zlib -r rubygems/package - "$archive" <<'RUBY'
+seen = {}
+total = 0
+Zlib::GzipReader.open(ARGV.fetch(0)) do |gzip|
+  Gem::Package::TarReader.new(gzip).each do |entry|
+    name = entry.full_name.sub(%r{\A\./}, "").sub(%r{/\z}, "")
+    next if [".", ""].include?(name) && entry.directory?
+    parts = name.split("/", -1)
+    abort "Unsafe archive entry" unless parts.all? { |part| /\A[A-Za-z0-9._-]+\z/.match?(part) && !%w[. ..].include?(part) }
+    abort "Unsafe archive entry type" unless entry.file? || entry.directory?
+    abort "Duplicate archive entry" if seen.key?(name)
+    seen[name] = true
+    total += entry.header.size
+    abort "Archive exceeds size limits" if total > 16 * 1024 * 1024 || seen.size > 256
+  end
+end
+abort "Release manifest is missing" unless %w[SOURCE-COMMIT SOURCE-SHA256SUMS scripts/install].all? { |name| seen[name] }
+RUBY
+/bin/mkdir "$stage/source"
+/usr/bin/tar -xzf "$archive" -C "$stage/source"
+if ( : </dev/tty ) 2>/dev/null; then
+    "$stage/source/scripts/install" "$@" </dev/tty
+else
+    "$stage/source/scripts/install" "$@"
+fi

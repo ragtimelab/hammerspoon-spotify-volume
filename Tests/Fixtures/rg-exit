@@ -1,0 +1,6 @@
+#!/bin/zsh
+# Simulate ripgrep exit statuses without depending on the host installation.
+if [[ "$*" == *Spoons* ]]; then
+    exit "${HSV_TEST_RG_SECOND_EXIT:-$HSV_TEST_RG_EXIT}"
+fi
+exit "$HSV_TEST_RG_EXIT"

@@ -1,0 +1,13 @@
+#!/bin/zsh
+case ${0:t} in
+    hs) print -r -- "$HSV_MOCK_RUNTIME" ;;
+    pgrep)
+        [[ ${HSV_MOCK_WORKERS:-0} == 1 ]] || exit 1
+        case ${@: -1} in
+            spotify-osd) print 200 ;;
+            spotify-control) print 300 ;;
+            Hammerspoon) print 100 ;;
+            *) exit 1 ;;
+        esac ;;
+    ps) print 100 ;;
+esac

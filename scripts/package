@@ -1,0 +1,44 @@
+#!/bin/zsh
+set -euo pipefail
+
+cd "${0:A:h:h}"
+umask 077
+commit=$(git rev-parse --verify --end-of-options "${1:-HEAD}^{commit}")
+version=$(git show "$commit:VERSION")
+[[ "$version" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]] || exit 1
+mkdir -p dist
+stage=$(mktemp -d "dist/.source.XXXXXX")
+trap 'find "$stage" -depth -delete' EXIT
+trap 'exit 1' INT TERM
+mkdir "$stage/source" "$stage/output"
+
+# Only committed product, installer, and required SwiftPM files enter the archive.
+paths=(VERSION Package.swift LICENSE README.md Sources Spoons scripts
+    Tests/SpotifyControlTests/main.swift Tests/SpotifyOSDTests/main.swift)
+git ls-tree -r "$commit" -- "${paths[@]}" | awk '
+    ($1 != "100644" && $1 != "100755") || NF != 4 ||
+        $4 !~ /^[a-zA-Z0-9._\/-]+$/ { bad = 1 }
+    END { exit bad }
+'
+git archive "$commit" -- "${paths[@]}" | /usr/bin/tar -xf - -C "$stage/source"
+print -r -- "$commit" > "$stage/source/SOURCE-COMMIT"
+(cd "$stage/source"; find . -type f -print | LC_ALL=C sort | while IFS= read -r entry; do
+    /usr/bin/shasum -a 256 "$entry"
+done) > "$stage/source-manifest"
+mv "$stage/source-manifest" "$stage/source/SOURCE-SHA256SUMS"
+
+archive="SpotifyVolume-$version-source.tar.gz"
+COPYFILE_DISABLE=1 /usr/bin/tar --format ustar -czf "$stage/output/$archive" -C "$stage/source" .
+(cd "$stage/output"; /usr/bin/shasum -a 256 "$archive" > "$archive.sha256")
+digest=$(cut -d ' ' -f 1 "$stage/output/$archive.sha256")
+url="https://github.com/ragtimelab/spotify-volume-spoon/releases/download/v$version/$archive"
+{
+    print -r -- "/bin/zsh -s -- '$url' '$digest' <<'SPOTIFY_VOLUME_INSTALL'"
+    cat "$stage/source/scripts/bootstrap"
+    print -r -- "SPOTIFY_VOLUME_INSTALL"
+} > "$stage/output/Install-v$version.txt"
+
+# Publish one complete directory. Each invocation owns its output.
+output="dist/v$version-$commit-${stage:t}"
+/usr/bin/ruby -e 'File.rename(ARGV.fetch(0), ARGV.fetch(1))' "$stage/output" "$output"
+print -r -- "$output/$archive"

@@ -1,0 +1,29 @@
+#!/bin/zsh
+set -euo pipefail
+cd "${0:A:h:h}"
+
+if ! command -v rg >/dev/null 2>&1; then
+    print -u2 "ripgrep (rg) is required to verify source"
+    exit 127
+fi
+
+reject_matches() {
+    local message=$1
+    shift
+    local scan_exit=0
+    rg "$@" || scan_exit=$?
+    case "$scan_exit" in
+        0) print -u2 "$message"; return 1 ;;
+        1) return 0 ;;
+        *) print -u2 "Source scan failed (rg exit $scan_exit)"; return "$scan_exit" ;;
+    esac
+}
+
+reject_matches "User-specific absolute path found in project source" \
+    -n '/Users/[A-Za-z0-9._-]+' \
+    --glob '!docs/**' --glob '!README.md' \
+    --glob '!**/.build/**' --glob '!**/dist/**' .
+
+reject_matches "Legacy repeat or unsafe AppleScript configuration found" \
+    -n 'repeatDelayTimer|repeatTimer|startVolumeRepeat|hs\.timer\.doEvery|allowAppleScript\(true\)' \
+    --glob '!**/.build/**' --glob '!**/dist/**' Spoons Tests Sources

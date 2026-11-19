@@ -1,0 +1,3 @@
+#!/bin/zsh
+set -euo pipefail
+exec /usr/bin/ruby "${0:A:h}/lifecycle.rb" status "$@"

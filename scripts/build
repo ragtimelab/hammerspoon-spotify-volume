@@ -1,0 +1,75 @@
+#!/bin/zsh
+set -euo pipefail
+
+repository_root=${0:A:h:h}
+cd "$repository_root"
+umask 077
+architecture=$(/usr/bin/uname -m)
+[[ "$architecture" == x86_64 || "$architecture" == arm64 ]] || exit 1
+version=$(tr -d '[:space:]' < VERSION)
+[[ "$version" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]] || { print -u2 "Invalid VERSION"; exit 1; }
+
+if [[ -f SOURCE-COMMIT && -f SOURCE-SHA256SUMS ]]; then
+    commit=$(<SOURCE-COMMIT)
+    /usr/bin/shasum -a 256 -c SOURCE-SHA256SUMS >/dev/null
+    source_sha=$(/usr/bin/shasum -a 256 SOURCE-SHA256SUMS | awk '{print $1}')
+else
+    commit=$(git rev-parse HEAD)
+    source_sha=$(git ls-files --cached --others --exclude-standard -z |
+        xargs -0 /usr/bin/shasum -a 256 | /usr/bin/shasum -a 256 | awk '{print $1}')
+fi
+[[ "$commit" =~ '^[a-f0-9]{40}$' && "$source_sha" =~ '^[a-f0-9]{64}$' ]] || exit 1
+build_id="${version}+${commit[1,12]}.${source_sha[1,12]}.$architecture"
+mkdir -p .build
+artifact_root=${1:-"$repository_root/.build/artifacts"}
+if [[ -z ${1:-} ]]; then
+    lock="$repository_root/.build/.build.lock"
+    mkdir "$lock" || { print -u2 "Another build is in progress"; exit 1; }
+fi
+stage=$(mktemp -d "${artifact_root:h}/.build-stage.XXXXXX")
+trap '[[ ! -d "$stage" ]] || find "$stage" -depth -delete; [[ -z ${lock:-} ]] || rmdir "$lock"' EXIT
+trap 'exit 1' INT TERM
+snapshot="$stage/input"
+mkdir -p "$snapshot/Sources"
+for directory in BuildIdentity SpotifyControl SpotifyControlCore SpotifyOSD SpotifyOSDCore SpotifyVolumeKeys; do
+    mkdir "$snapshot/Sources/$directory"
+    for source_file in Sources/"$directory"/*.swift; do
+        [[ -f "$source_file" && ! -L "$source_file" ]] || exit 1
+        cp "$source_file" "$snapshot/Sources/$directory/"
+    done
+done
+mkdir -p "$snapshot/Tests/SpotifyControlTests" "$snapshot/Tests/SpotifyOSDTests"
+cp Tests/SpotifyControlTests/main.swift "$snapshot/Tests/SpotifyControlTests/"
+cp Tests/SpotifyOSDTests/main.swift "$snapshot/Tests/SpotifyOSDTests/"
+cp Package.swift "$snapshot/Package.swift"
+printf 'public let buildVersion = "%s"\npublic let buildIdentity = "%s"\n' "$version" "$build_id" > "$snapshot/Sources/BuildIdentity/BuildIdentity.swift"
+
+output="$stage/output"
+bundle="$output/SpotifyVolume.spoon"
+mkdir -p "$bundle/bin" "$bundle/spotify"
+for source_file in init.lua spotify/controller.lua spotify/osd_supervisor.lua spotify/runtime.lua spotify/transport.lua; do
+    input="Spoons/SpotifyVolume.spoon/$source_file"
+    [[ -f "$input" && ! -L "$input" ]] || exit 1
+    cp "$input" "$bundle/$source_file"
+done
+for product in spotify-control spotify-osd spotify-volume-keys; do
+    /usr/bin/xcrun swift build --package-path "$snapshot" -c release --arch "$architecture" \
+        --product "$product" -Xswiftc -warnings-as-errors >&2
+    binary="$snapshot/.build/$architecture-apple-macosx/release/$product"
+    [[ "$(/usr/bin/xcrun lipo -archs "$binary")" == "$architecture" ]] || exit 1
+    /usr/bin/install -m 0755 "$binary" "$bundle/bin/$product"
+done
+
+built_at=$(/bin/date -u '+%Y-%m-%dT%H:%M:%SZ')
+printf '{"version":"%s","commit":"%s","buildID":"%s","architecture":"%s","protocolVersion":1,"builtAt":"%s"}\n' \
+    "$version" "$commit" "$build_id" "$architecture" "$built_at" > "$bundle/BUILD-INFO.json"
+(cd "$bundle"; find . -type f -print | LC_ALL=C sort | while IFS= read -r file; do
+    /usr/bin/shasum -a 256 "$file"
+done) > "$output/SHA256SUMS"
+
+if [[ -d "$artifact_root" && -z ${1:-} ]]; then
+    find "$artifact_root" -depth -delete
+fi
+[[ ! -e "$artifact_root" && ! -L "$artifact_root" ]] || exit 1
+/bin/mv "$output" "$artifact_root"
+print "$artifact_root/SpotifyVolume.spoon"
