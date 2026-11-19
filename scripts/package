@@ -31,7 +31,7 @@ archive="SpotifyVolume-$version-source.tar.gz"
 COPYFILE_DISABLE=1 /usr/bin/tar --format ustar -czf "$stage/output/$archive" -C "$stage/source" .
 (cd "$stage/output"; /usr/bin/shasum -a 256 "$archive" > "$archive.sha256")
 digest=$(cut -d ' ' -f 1 "$stage/output/$archive.sha256")
-url="https://github.com/ragtimelab/spotify-volume-spoon/releases/download/v$version/$archive"
+url="https://github.com/ragtimelab/hammerspoon-spotify-volume/releases/download/v$version/$archive"
 {
     print -r -- "/bin/zsh -s -- '$url' '$digest' <<'SPOTIFY_VOLUME_INSTALL'"
     cat "$stage/source/scripts/bootstrap"

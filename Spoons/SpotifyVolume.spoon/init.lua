@@ -4,7 +4,7 @@ obj.__index = obj
 obj.name = "SpotifyVolume"
 obj.version = "development"
 obj.author = "ragtimelab"
-obj.homepage = "https://github.com/ragtimelab/spotify-volume-spoon"
+obj.homepage = "https://github.com/ragtimelab/hammerspoon-spotify-volume"
 obj.license = "MIT"
 
 -- scriptPath() resolves the directory of this Spoon. resourcePath() expects a

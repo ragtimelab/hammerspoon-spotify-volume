@@ -10,7 +10,7 @@
 
 ## 설치
 
-[공식 릴리스](https://github.com/ragtimelab/spotify-volume-spoon/releases)에서 원하는 버전의 `Install-v<버전>.txt`를 엽니다. 그 안의 명령 블록을 터미널에 한 번 붙여 넣으면 해당 버전의 소스를 내려받아 SHA-256을 확인한 후 이 Mac에서 빌드하고 설치합니다.
+[공식 릴리스](https://github.com/ragtimelab/hammerspoon-spotify-volume/releases)에서 원하는 버전의 `Install-v<버전>.txt`를 엽니다. 그 안의 명령 블록을 터미널에 한 번 붙여 넣으면 해당 버전의 소스를 내려받아 SHA-256을 확인한 후 이 Mac에서 빌드하고 설치합니다.
 
 ## 단축키 설정
 
